@@ -1,0 +1,202 @@
+Program.Sub.ScreenSU.Start
+gui.SS_Form1..create
+gui.SS_Form1..caption("Bank ARP")
+gui.SS_Form1..size(4135,1825)
+gui.SS_Form1..position(0,0)
+gui.SS_Form1..event(unload,ss_form1_unload)
+gui.SS_Form1..alwaysontop(False)
+gui.SS_Form1..fontname("Arial")
+gui.SS_Form1..fontsize(8)
+gui.SS_Form1..forecolor(0)
+gui.SS_Form1..fontstyle(,,,,)
+gui.SS_Form1..BackColor(-2147483633)
+gui.SS_Form1..controlbox(True)
+gui.SS_Form1..maxbutton(False)
+gui.SS_Form1..minbutton(False)
+gui.SS_Form1..mousepointer(0)
+gui.SS_Form1..moveable(True)
+gui.SS_Form1..sizeable(False)
+gui.SS_Form1..ShowInTaskBar(True)
+gui.SS_Form1..titlebar(True)
+gui.SS_Form1.lbl_dtpBeg.create(label,"Beginning Date",True,1800,200,1,100,135,True,0,Arial,8,-2147483633,0)
+gui.SS_Form1.dtpBeg.create(datepicker)
+gui.SS_Form1.dtpBeg.visible(True)
+gui.SS_Form1.dtpBeg.size(1800,345)
+gui.SS_Form1.dtpBeg.zorder(0)
+gui.SS_Form1.dtpBeg.position(100,335)
+gui.SS_Form1.dtpBeg.enabled(True)
+gui.SS_Form1.dtpBeg.checkbox(False)
+gui.SS_Form1.lbl_dtpEnd.create(label,"Ending Date",True,1800,200,1,1985,135,True,0,Arial,8,-2147483633,0)
+gui.SS_Form1.dtpEnd.create(datepicker)
+gui.SS_Form1.dtpEnd.visible(True)
+gui.SS_Form1.dtpEnd.size(1800,345)
+gui.SS_Form1.dtpEnd.zorder(0)
+gui.SS_Form1.dtpEnd.position(1985,335)
+gui.SS_Form1.dtpEnd.enabled(True)
+gui.SS_Form1.dtpEnd.checkbox(False)
+gui.SS_Form1.cmdOk.create(button)
+gui.SS_Form1.cmdOk.caption("Ok")
+gui.SS_Form1.cmdOk.visible(True)
+gui.SS_Form1.cmdOk.size(1000,360)
+gui.SS_Form1.cmdOk.zorder(0)
+gui.SS_Form1.cmdOk.position(100,850)
+gui.SS_Form1.cmdOk.enabled(True)
+gui.SS_Form1.cmdOk.fontname("Arial")
+gui.SS_Form1.cmdOk.fontsize(8)
+gui.SS_Form1.cmdOk.event(click,cmdok_click)
+
+
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+
+Variable.UDT.CkData.Define("Acct_no",String,Acct_No)
+Variable.UDT.CkData.Define("Ck_Or_Void",String,Ck_Or_Void)
+Variable.UDT.CkData.Define("Ck_No",String,Ck_No)
+Variable.UDT.CkData.Define("Payee",String,Payee)
+Variable.UDT.CkData.Define("Ck_Date",Date,Ck_Date,"YYYYMMDD")
+Variable.UDT.CkData.Define("Amount",String,Amount)
+Variable.uGlobal.uCkData.Declare("CkData")
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+
+
+F.ODBC.Connection!Con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+Gui.SS_Form1..Show
+
+Program.Sub.Main.End
+
+program.sub.ss_form1_unload.start
+
+F.ODBC.Connection!Con.Close
+F.Intrinsic.Control.End
+
+program.sub.ss_form1_unload.end
+
+program.sub.cmdok_click.start
+
+Gui.SS_Form1..Visible(false)
+
+
+F.Intrinsic.Control.CallSub(Acctpay)
+F.Intrinsic.Control.CallSub(Writerec)
+F.Intrinsic.Control.CallSub(Ss_form1_unload)
+
+program.sub.cmdok_click.end
+
+Program.Sub.AcctPay.Start
+
+Function.Intrinsic.Control.SetErrorHandler("AcctPay_Err")
+Function.Intrinsic.Control.ClearErrors
+'===============================
+
+
+V.Local.sError.Declare(String)
+V.Local.sSel.Declare(String)
+V.Local.sBDate.Declare(String)
+V.Local.sEDate.Declare(String)
+V.Local.i.Declare(Long)
+
+F.Intrinsic.String.Format(V.Screen.SS_Form1!dtpBeg.Value,"YYYYMMDD",V.Local.sBDate)
+F.Intrinsic.String.Format(V.Screen.SS_Form1!dtpEnd.Value,"YYYYMMDD",V.Local.sEDate)
+
+' load udt with check data
+V.uGlobal.uCkData.Redim(-1,-1)
+F.Intrinsic.String.Concat("select Acct_No, Ck_Or_Void, Ck_No, Amount, Ck_Date, Payee from Checks_Log where CK_DATE between '",V.Local.sBDate,"' and '",V.Local.sEDate,"' order by CK_DATE",V.Local.sSel)
+F.ODBC.Connection!con.OpenRecordsetRO("rstSel",V.Local.sSel)
+	F.Intrinsic.Control.If(V.ODBC.Con!rstSel.eof,=,False)
+		F.Intrinsic.Variable.LoadUDTFromRecordset("Con","rstSel","v.uGlobal.uCkData",False,1)
+	F.Intrinsic.Control.EndIf
+F.ODBC.con!rstSel.Close
+
+' set correct flag C='O'; V='V'
+F.Intrinsic.Variable.UDTMultiSeekSet(V.uGlobal.uCkData!Ck_Or_Void,"C",V.uGlobal.uCkData!Ck_Or_Void,"O")
+
+Function.Intrinsic.Control.ExitSub
+
+
+
+'===============================
+Function.Intrinsic.Control.Label("AcctPay_Err")
+Function.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+
+Program.Sub.AcctPay.End
+
+Program.Sub.Writerec.Start
+F.Intrinsic.Control.SetErrorHandler("Writerec_Err")
+F.Intrinsic.Control.ClearErrors
+'===============================
+
+
+
+V.Local.sError.Declare(String)
+V.Local.sLen.Declare(String)
+V.Local.iFor.Declare(Long)
+V.Local.sOutput.Declare(String)
+V.Local.sHold.Declare(String)
+V.Local.sValues.declare(String)
+V.Local.sFile.Declare(String)
+V.Local.sDate.Declare(String)
+V.Local.sFiller.Declare(String)
+V.Local.sAmt.Declare(String)
+
+'if udt is empty, create blank file
+F.Intrinsic.String.Format(V.Screen.SS_Form1!dtpBeg.Value,"yyyymmdd",V.Local.sDate)
+F.Intrinsic.String.Concat(V.Caller.FilesDir,"\",V.Local.sDate,".prn",V.Local.sFile)
+F.Intrinsic.String.LPad(V.Local.sFiller," ",3,V.Local.sFiller)
+
+' get line values into a string
+F.Intrinsic.Control.For(V.Local.iFor,V.uGlobal.uCkData!Ck_No.LBound,V.uGlobal.uCkData!Ck_Date.UBound,1)
+
+	F.Intrinsic.String.LPad(V.uGlobal.uCkData(v.Local.iFor)!Acct_no,"0",12,V.uGlobal.uCkData(v.Local.iFor)!Acct_no)
+	F.Intrinsic.String.LPad(V.uGlobal.uCkData(v.Local.iFor)!Ck_No,"0",10,V.uGlobal.uCkData(v.Local.iFor)!Ck_No)
+	F.Intrinsic.String.Format(V.uGlobal.uCkData(v.Local.iFor)!Amount,"0.00",V.Local.sAmt)
+	F.Intrinsic.String.Replace(V.Local.sAmt,".","",V.Local.sAmt)
+	F.Intrinsic.String.LPad(V.Local.sAmt,"0",12,V.Local.sAmt)
+	F.Intrinsic.String.Format(V.uGlobal.uCkData(v.Local.iFor)!Ck_Date,"MMDDYY",V.Local.sDate)
+	F.Intrinsic.String.RPad(V.uGlobal.uCkData(v.Local.iFor)!Payee," ",40,V.uGlobal.uCkData(v.Local.iFor)!Payee)
+	F.Intrinsic.String.Concat(V.uGlobal.uCkData(v.Local.iFor)!Acct_no,V.uGlobal.uCkData(v.Local.iFor)!Ck_Or_Void,V.uGlobal.uCkData(v.Local.iFor)!Ck_No,V.Local.sAmt,V.Local.sDate,V.Local.sFiller,V.uGlobal.uCkData(v.Local.iFor)!Payee,V.Local.sValues)
+	F.Intrinsic.String.Concat(V.Local.sOutput,V.Local.sValues,V.Ambient.NewLine,V.Local.sOutput)
+F.Intrinsic.Control.Next(V.Local.iFor)
+
+F.Intrinsic.File.String2File(V.Local.sFile,V.Local.sOutput)
+
+F.Intrinsic.Control.ExitSub
+
+
+
+
+'===============================
+F.Intrinsic.Control.Label("Writerec_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_Bank_Arp.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Writerec.End
+
+Program.Sub.Comments.Start
+${$0$}$GCG_Bank_Arp$}$JCT$}$2/14/2013
+${$3$}$0$}$$}$-1$}$-1$}$$}$1/1/1900$}$For Vari Systems, Corp.
+Custom hook and menu item
+output is fixed width file named yyyymmdd.prn where yyyymmdd is the beginning date selected.
+file saved to Global\Files
+
+Acct (1-12), Record Type (1), Check No (14-23), Check Amt (24-35), Check Date (36-41), Blank fill (42-44), Payee Name (45-72)
+
+Program.Sub.Comments.End
+Program.Sub.ScreenSS.Start
+SS_Form1{{CAPTION::Bank ARP
+SS_Form1.CTRL{{NAME::dtpBeg\\TYPE::6\\CAPTION::Beginning Date\\GROUP::1\\BROWSER::0\\SIZE::1
+SS_Form1.CTRL{{NAME::dtpEnd\\TYPE::6\\CAPTION::Ending Date\\GROUP::1\\BROWSER::0\\SIZE::1
+SS_Form1.CTRL{{NAME::cmdOk\\TYPE::5\\CAPTION::Ok\\GROUP::2\\BROWSER::0\\SIZE::1
+
+Program.Sub.ScreenSS.End
+
